@@ -1,7 +1,15 @@
 package com.gemini.mypromptai.ui.components
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,49 +33,88 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.gemini.mypromptai.R
+import com.gemini.mypromptai.ui.helper.getSpeech
 import com.gemini.mypromptai.ui.theme.primaryBackground
 import com.gemini.mypromptai.ui.theme.secondaryBackground
 import com.gemini.mypromptai.ui.theme.tertiaryBackground
 import com.gemini.mypromptai.ui.theme.textColor
 
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun BottomBar(
-    onSend:(String) -> Unit
+    onSend: (String) -> Unit
 ) {
+
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     var prompt by remember { mutableStateOf("") }
+
+    val speechRecognizerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val data: Intent? = result.data
+            val results = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            prompt = results?.get(0).toString()
+        }
+    }
+
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            getSpeech(speechRecognizerLauncher)
+        } else {
+            Toast.makeText(context, "Permission Denied", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Row(
         modifier = Modifier.padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         MySendInput(
-            modifier = Modifier.padding(12.dp).background(
-                color = secondaryBackground,
-                shape = RoundedCornerShape(8.dp)
-            ),
+            modifier = Modifier
+                .padding(12.dp)
+                .background(
+                    color = secondaryBackground,
+                    shape = RoundedCornerShape(8.dp)
+                ),
             text = prompt,
             onTextChange = {
-                           prompt = it
+                prompt = it
             },
             placeHolder = "Type a message",
-            onClick = {},
+            onClick = {
+                if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+                    Toast.makeText(context, "Speech not Available", Toast.LENGTH_SHORT).show()
+                } else {
+                    if (
+                        ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        getSpeech(speechRecognizerLauncher)
+                    } else {
+                        requestPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    }
+                }
+            },
             keyboardController = keyboardController,
             focusManager = focusManager
         )
@@ -90,15 +137,13 @@ fun BottomBar(
                 imageVector = Icons.Filled.Send,
                 contentDescription = "Favorite",
                 modifier = Modifier.size(28.dp),
-                tint = Color.White
+                tint = textColor
             )
         }
     }
-
 }
 
 
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MySendInput(
     modifier: Modifier = Modifier,
@@ -106,7 +151,7 @@ fun MySendInput(
     onTextChange: (String) -> Unit,
     placeHolder: String,
     onClick: () -> Unit,
-    keyboardController:  SoftwareKeyboardController?,
+    keyboardController: SoftwareKeyboardController?,
     focusManager: FocusManager
 ) {
 
@@ -157,3 +202,4 @@ fun MySendInput(
         maxLines = 4,
     )
 }
+
