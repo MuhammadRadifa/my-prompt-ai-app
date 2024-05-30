@@ -15,6 +15,10 @@ class MainViewModel:ViewModel() {
     private val _response = MutableStateFlow<ResultState<List<PromptMessage>>>(ResultState.Loading)
     val response:StateFlow<ResultState<List<PromptMessage>>> = _response
 
+    init {
+        _response.value = ResultState.Success(emptyList())
+    }
+
     fun sendPrompt(prompt:String){
         viewModelScope.launch {
             try {
@@ -27,8 +31,6 @@ class MainViewModel:ViewModel() {
                         ResultState.Success(listOf(PromptMessage(message.text,isUser = false)))
                     }
                 }
-
-
             }catch (e:Exception){
                 Log.e("MainViewModel", "sendPrompt: ${e.cause}")
             }
@@ -45,6 +47,10 @@ class MainViewModel:ViewModel() {
                 }
             }
         }
+    }
+
+    fun clearChat(){
+        _response.value = ResultState.Success(emptyList())
     }
 
 }
