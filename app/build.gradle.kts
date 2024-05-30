@@ -84,4 +84,5 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     implementation(libs.generativeai)
+    implementation(libs.compose.markdown)
 }
